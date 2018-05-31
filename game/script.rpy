@@ -1,5 +1,5 @@
 init python:
-    init_console()
+    console_init()
 
 label start:
 
@@ -9,6 +9,7 @@ label start:
     "We need to investigate! Who should we send, and where should they go?"
 
     python:
-        console()
+        console_show()
+        console_add_text("Monika mmmmmmmmm\n")
 
     "Okay, we'll send detective to city."
