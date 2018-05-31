@@ -6,14 +6,16 @@ init python:
             self.drag = None
 
         def set_frame(self, frame):
-            self.text = Text("", area=(frame.left, frame.top, 800 - frame.left - frame.right, 480 - frame.top - frame.bottom))
+            self.text = Text("")
+            self.viewport = Viewport(self.text, mousewheel=True, pos=(frame.left, frame.top), xysize=(800 - frame.left - frame.right, 480 - frame.top - frame.bottom))
             self.drag = Drag(Fixed(
                 frame,
-                self.text,
+                self.viewport,
                 xmaximum=800, ymaximum=480
             ))
 
         def show(self, layer, zorder):
+            self.viewport.yoffset = 1.0
             renpy.scene_lists().add(layer, self.drag, zorder=zorder)
 
         def add_text(self, text):

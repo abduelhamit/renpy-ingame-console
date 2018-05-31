@@ -10,6 +10,7 @@ label start:
 
     python:
         console_show()
-        console_add_text("Monika mmmmmmmmm\n")
+        for i in range(1, 10):
+            console_add_text("Monika {}\n".format(i))
 
     "Okay, we'll send detective to city."
