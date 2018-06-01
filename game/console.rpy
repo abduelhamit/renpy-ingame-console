@@ -15,12 +15,9 @@ init python:
 
     class ConsoleCommand(object):
 
-        def __init__(self):
-            self.out = None
-
         def help(self):
-            pass
-        
+            return ""
+
         def autofill(self, argv):
             pass
 
@@ -28,10 +25,46 @@ init python:
             pass
 
 
+    class _ConsoleCommandClear(ConsoleCommand):
+
+        def __init__(self, set_text):
+            self.set_text = set_text
+
+        def help(self):
+            return ("clear", "Clears the console.")
+
+        def call(self, argv):
+            self.set_text([])
+
+
+    class _ConsoleCommandHelp(ConsoleCommand):
+
+        def __init__(self, console):
+            self.console = console
+
+        def help(self):
+            return ("help", "Shows this help.")
+
+        def call(self, argv):
+            for command in self.console.commands.itervalues():
+                h = command.help()
+                if h:
+                    if hasattr(h, "__iter__"):
+                        indent = ""
+                        for t in h:
+                            self.console._out(indent + t, True)
+                            indent = "    "
+                    else:
+                        self.console._out(h, True)
+
+
     class Console(object):
 
         def __init__(self, frame=Frame("frame-old.png", 10, 10), shell_symbol="> ", history_limit=100):
-            self.commands = {}
+            self.commands = {
+                "clear": _ConsoleCommandClear(self._set_text),
+                "help": _ConsoleCommandHelp(self),
+            }
             self.shown = False
             self.layer = None
             self.history_limit = history_limit
