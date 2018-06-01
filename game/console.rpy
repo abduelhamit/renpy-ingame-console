@@ -13,15 +13,31 @@ init python:
             self.event_handler(ev, x, y, st)
 
 
+    class ConsoleCommand(object):
+
+        def __init__(self):
+            self.out = None
+
+        def help(self):
+            pass
+        
+        def autofill(self, argv):
+            pass
+
+        def call(self, argv):
+            pass
+
+
     class Console(object):
 
         def __init__(self, frame=Frame("frame-old.png", 10, 10), shell_symbol="> ", history_limit=100):
+            self.commands = {}
             self.shown = False
             self.layer = None
             self.history_limit = history_limit
             self.drag = None
             self.shell_symbol = shell_symbol
-            self.text = Text(shell_symbol)
+            self.text = Text([shell_symbol, ""])
             self.viewport = Viewport(self.text, mousewheel=True, pos=(frame.left, frame.top), xysize=(800 - frame.left - frame.right, 480 - frame.top - frame.bottom))
             self.drag = ConsoleDrag(
                 self.event,
@@ -42,7 +58,7 @@ init python:
                     text[last_line] = text[last_line][:len(text[last_line]) - 1]
 
             elif map_event(ev, "input_enter"):
-                self.add_command("\n", False)
+                self.call_command("\n", False, False)
                 raise renpy.display.core.IgnoreEvent()
 
             elif ev.type == pygame.TEXTINPUT:
@@ -80,14 +96,51 @@ init python:
             renpy.scene_lists().remove(self.layer, self.drag)
             self.shown = False
 
-        def add_command(self, text, line_break=True):
+        def _set_text(self, texts):
+            texts = texts[-self.history_limit:]
+            self.text.set_text(texts)
+            self.viewport.yoffset = 1.0
+
+        def call_command(self, text, line_break=True, clear_line=True):
             if line_break and text[len(text) - 1] != "\n":
                 text += "\n"
             texts = self.text.text[:]
-            texts[len(texts) - 1] += text
+            last_line = len(texts) - 1
+
+            if clear_line:
+                texts[last_line] = text
+            else:
+                texts[last_line] += text
+
+            self._set_text(texts)
+
+            argv = texts[last_line].split()
+            if len(argv) > 0:
+                command = self.commands.get(argv[0])
+                if command:
+                    command.call(argv)
+                    texts = self.text.text[:]
+                else:
+                    texts.append("Error: Command '{}' not found.\n".format(argv[0]))
+
             texts.append(self.shell_symbol)
             texts.append("")
-            texts = texts[-self.history_limit:]
 
-            self.text.set_text(texts)
-            self.viewport.yoffset = 1.0
+            self._set_text(texts)
+
+        def _out(self, text, line_break=False):
+            if line_break and text[len(text) - 1] != "\n":
+                text += "\n"
+            texts = self.text.text[:]
+
+            texts.append(text)
+
+            self._set_text(texts)
+
+        def add_command(self, name, command):
+            if not isinstance(name, unicode):
+                raise TypeError("'name' has be of type 'unicode'")
+            if not isinstance(command, ConsoleCommand):
+                raise TypeError("'command' has be of type 'ConsoleCommand'")
+            command.out = self._out
+            self.commands[name] = command
