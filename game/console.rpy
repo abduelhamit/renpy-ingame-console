@@ -1,47 +1,74 @@
 init python:
+    import pygame_sdl2 as pygame
+
+    class ConsoleDrag(renpy.display.dragdrop.Drag):
+
+        def __init__(self, event_handler, **properties):
+            super(ConsoleDrag, self).__init__(**properties)
+            self.event_handler = event_handler
+
+        def event(self, ev, x, y, st):
+            super(ConsoleDrag, self).event(ev, x, y, st)
+            self.event_handler(ev, x, y, st)
+
 
     class Console(object):
 
-        def __init__(self):
+        def __init__(self, frame=Frame("frame-old.png", 10, 10), shell_symbol="> "):
             self.drag = None
-
-        def set_frame(self, frame):
-            self.text = Text("")
+            self.shell_symbol = shell_symbol
+            self.text = Text(shell_symbol)
             self.viewport = Viewport(self.text, mousewheel=True, pos=(frame.left, frame.top), xysize=(800 - frame.left - frame.right, 480 - frame.top - frame.bottom))
-            self.drag = Drag(Fixed(
-                frame,
-                self.viewport,
-                xmaximum=800, ymaximum=480
-            ))
+            self.drag = ConsoleDrag(
+                self.event,
+                d=Fixed(
+                    frame,
+                    self.viewport,
+                    xmaximum=800, ymaximum=480
+                )
+            )
 
-        def show(self, layer, zorder):
+        def event(self, ev, x, y, st):
+            text = self.text.text[:]
+            map_event = renpy.display.behavior.map_event
+            last_line = len(text) - 1
+
+            if map_event(ev, "input_backspace"):
+                if text[last_line] != "":
+                    text[last_line] = text[last_line][:len(text[last_line]) - 1]
+
+            elif map_event(ev, "input_enter"):
+                self.add_command("\n", False)
+                raise renpy.display.core.IgnoreEvent()
+
+            elif ev.type == pygame.TEXTINPUT:
+                text[last_line] += ev.text
+
+            elif ev.type == pygame.KEYDOWN:
+                if ev.unicode and ord(ev.unicode[0]) >= 32:
+                    text[last_line] += ev.unicode
+
+            else:
+                raise renpy.display.core.IgnoreEvent()
+
+            self.text.set_text(text)
+            self.viewport.yoffset = 1.0
+
+            raise renpy.display.core.IgnoreEvent()
+
+        def show(self, layer=None, zorder=sys.maxsize):
+            if not layer:
+                layer = renpy.config.layers[len(renpy.config.layers) - 1]
             self.viewport.yoffset = 1.0
             renpy.scene_lists().add(layer, self.drag, zorder=zorder)
 
-        def add_text(self, text):
-            # set_text does some processing which I'll utilize
-            old_text = self.text.text
-            self.text.set_text(text)
+        def add_command(self, text, line_break=True):
+            if line_break and text[len(text) - 1] != "\n":
+                text += "\n"
+            texts = self.text.text[:]
+            texts[len(texts) - 1] += text
+            texts.append(self.shell_symbol)
+            texts.append("")
 
-            self.text.set_text(old_text + self.text.text)
-
-        def set_text(self, text):
-            self.text.set_text(text)
-
-
-    _c = Console()
-
-
-    def console_init(frame=Frame("frame-old.png", 10, 10)):
-        _c.set_frame(frame)
-
-    def console_show(layer=None, zorder=sys.maxsize):
-        if not layer:
-            layer = renpy.config.layers[len(renpy.config.layers)-1]
-        _c.show(layer, zorder)
-
-    def console_add_text(text):
-        _c.add_text(text)
-
-    def console_set_text(text):
-        _c.set_text(text)
+            self.text.set_text(texts)
+            self.viewport.yoffset = 1.0

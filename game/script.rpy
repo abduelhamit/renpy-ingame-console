@@ -1,5 +1,5 @@
 init python:
-    console_init()
+    console = Console()
 
 label start:
 
@@ -9,8 +9,10 @@ label start:
     "We need to investigate! Who should we send, and where should they go?"
 
     python:
-        console_show()
-        for i in range(1, 10):
-            console_add_text("Monika {}\n".format(i))
+        console.show()
+        for i in range(10):
+            console.add_command("Monika {}\n".format(i))
+        for i in range(10, 20):
+            console.add_command("Monika {}".format(i))
 
     "Okay, we'll send detective to city."
