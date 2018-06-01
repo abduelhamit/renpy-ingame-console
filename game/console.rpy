@@ -60,7 +60,7 @@ init python:
 
     class Console(object):
 
-        def __init__(self, frame=Frame("frame-old.png", 10, 10), shell_symbol="> ", history_limit=100):
+        def __init__(self, frame=Frame("frame.png", 3, 3), shell_symbol="> ", history_limit=100):
             self.commands = {
                 "clear": _ConsoleCommandClear(self._set_text),
                 "help": _ConsoleCommandHelp(self),
