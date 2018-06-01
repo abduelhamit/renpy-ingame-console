@@ -1,6 +1,7 @@
 init python:
     import pygame_sdl2 as pygame
 
+
     class ConsoleDrag(renpy.display.dragdrop.Drag):
 
         def __init__(self, event_handler, **properties):
@@ -14,7 +15,10 @@ init python:
 
     class Console(object):
 
-        def __init__(self, frame=Frame("frame-old.png", 10, 10), shell_symbol="> "):
+        def __init__(self, frame=Frame("frame-old.png", 10, 10), shell_symbol="> ", history_limit=100):
+            self.shown = False
+            self.layer = None
+            self.history_limit = history_limit
             self.drag = None
             self.shell_symbol = shell_symbol
             self.text = Text(shell_symbol)
@@ -48,8 +52,12 @@ init python:
                 if ev.unicode and ord(ev.unicode[0]) >= 32:
                     text[last_line] += ev.unicode
 
-            else:
+            elif ev.type == pygame.MOUSEBUTTONDOWN and pygame.mouse.get_pressed()[0]:
+                self.hide()
                 raise renpy.display.core.IgnoreEvent()
+
+            else:
+                return
 
             self.text.set_text(text)
             self.viewport.yoffset = 1.0
@@ -57,10 +65,20 @@ init python:
             raise renpy.display.core.IgnoreEvent()
 
         def show(self, layer=None, zorder=sys.maxsize):
+            if self.shown:
+                return
             if not layer:
                 layer = renpy.config.layers[len(renpy.config.layers) - 1]
+            self.layer = layer
             self.viewport.yoffset = 1.0
             renpy.scene_lists().add(layer, self.drag, zorder=zorder)
+            self.shown = True
+
+        def hide(self):
+            if not self.shown:
+                return
+            renpy.scene_lists().remove(self.layer, self.drag)
+            self.shown = False
 
         def add_command(self, text, line_break=True):
             if line_break and text[len(text) - 1] != "\n":
@@ -69,6 +87,7 @@ init python:
             texts[len(texts) - 1] += text
             texts.append(self.shell_symbol)
             texts.append("")
+            texts = texts[-self.history_limit:]
 
             self.text.set_text(texts)
             self.viewport.yoffset = 1.0
