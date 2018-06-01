@@ -60,17 +60,19 @@ init python:
 
     class Console(object):
 
-        def __init__(self, frame=Frame("frame.png", 3, 3), shell_symbol="> ", history_limit=100):
+        def __init__(self, frame=Frame("frame.png", 3, 3), shell_symbol="> ", history_limit=100, caret="|"):
             self.commands = {
                 "clear": _ConsoleCommandClear(self._set_text),
                 "help": _ConsoleCommandHelp(self),
             }
+            self.caret = caret
+            self.caret_pos = 0
             self.shown = False
             self.layer = None
             self.history_limit = history_limit
             self.drag = None
             self.shell_symbol = shell_symbol
-            self.text = Text([shell_symbol, ""])
+            self.text = Text([shell_symbol, caret])
             self.viewport = Viewport(self.text, mousewheel=True, pos=(frame.left, frame.top), xysize=(800 - frame.left - frame.right, 480 - frame.top - frame.bottom))
             self.drag = ConsoleDrag(
                 self.event,
@@ -82,24 +84,50 @@ init python:
             )
 
         def event(self, ev, x, y, st):
-            text = self.text.text[:]
+            texts = self.text.text[:]
             map_event = renpy.display.behavior.map_event
-            last_line = len(text) - 1
+            last_line_index = len(texts) - 1
+            last_line = texts[last_line_index]
 
             if map_event(ev, "input_backspace"):
-                if text[last_line] != "":
-                    text[last_line] = text[last_line][:len(text[last_line]) - 1]
+                if self.caret_pos > 0:
+                    texts[last_line_index] = last_line[:self.caret_pos - 1] + last_line[self.caret_pos:]
+                    self.caret_pos -= 1
+
+            if map_event(ev, "input_delete"):
+                if self.caret_pos < len(last_line) - 1:
+                    texts[last_line_index] = last_line[:self.caret_pos + 1] + last_line[self.caret_pos + 2:]
+
+            elif map_event(ev, "input_home"):
+                texts[last_line_index] = self.caret + last_line[:self.caret_pos] + last_line[self.caret_pos + 1:]
+                self.caret_pos = 0
+
+            elif map_event(ev, "input_end"):
+                texts[last_line_index] = last_line[:self.caret_pos] + last_line[self.caret_pos + 1:] + self.caret
+                self.caret_pos = len(last_line) - 1
+
+            if map_event(ev, "input_left"):
+                if self.caret_pos > 0:
+                    texts[last_line_index] = last_line[:self.caret_pos - 1] + self.caret + last_line[self.caret_pos - 1] + last_line[self.caret_pos + 1:]
+                    self.caret_pos -= 1
+
+            if map_event(ev, "input_right"):
+                if self.caret_pos < len(last_line) - 1:
+                    texts[last_line_index] = last_line[:self.caret_pos] + last_line[self.caret_pos + 1] + self.caret + last_line[self.caret_pos + 2:]
+                    self.caret_pos += 1
 
             elif map_event(ev, "input_enter"):
                 self.call_command("\n", False, False)
                 raise renpy.display.core.IgnoreEvent()
 
             elif ev.type == pygame.TEXTINPUT:
-                text[last_line] += ev.text
+                texts[last_line_index] = last_line[:self.caret_pos] + ev.text + last_line[self.caret_pos:]
+                self.caret_pos += 1
 
             elif ev.type == pygame.KEYDOWN:
                 if ev.unicode and ord(ev.unicode[0]) >= 32:
-                    text[last_line] += ev.unicode
+                    texts[last_line_index] = last_line[:self.caret_pos] + ev.unicode + last_line[self.caret_pos:]
+                    self.caret_pos += 1
 
             elif ev.type == pygame.MOUSEBUTTONDOWN and pygame.mouse.get_pressed()[0]:
                 self.hide()
@@ -108,7 +136,7 @@ init python:
             else:
                 return
 
-            self.text.set_text(text)
+            self.text.set_text(texts)
             self.viewport.yoffset = 1.0
 
             raise renpy.display.core.IgnoreEvent()
@@ -138,16 +166,17 @@ init python:
             if line_break and text[len(text) - 1] != "\n":
                 text += "\n"
             texts = self.text.text[:]
-            last_line = len(texts) - 1
+            last_line_index = len(texts) - 1
 
             if clear_line:
-                texts[last_line] = text
+                texts[last_line_index] = text
             else:
-                texts[last_line] += text
+                texts[last_line_index] += text
+                texts[last_line_index] = texts[last_line_index][:self.caret_pos] + texts[last_line_index][self.caret_pos + 1:]
 
             self._set_text(texts)
 
-            argv = texts[last_line].split()
+            argv = texts[last_line_index].split()
             if len(argv) > 0:
                 command = self.commands.get(argv[0])
                 if command:
@@ -157,7 +186,8 @@ init python:
                     texts.append("Error: Command '{}' not found.\n".format(argv[0]))
 
             texts.append(self.shell_symbol)
-            texts.append("")
+            texts.append(self.caret)
+            self.caret_pos = 0
 
             self._set_text(texts)
 
