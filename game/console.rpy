@@ -1,4 +1,4 @@
-init python:
+init -2147483648 python:
     import pygame_sdl2 as pygame
 
 
